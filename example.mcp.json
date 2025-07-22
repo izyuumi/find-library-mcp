@@ -1,13 +1,7 @@
 {
   "mcpServers": {
     "find-library-mcp": {
-      "command": "deno",
-      "args": [
-        "run",
-        "--allow-read",
-        "--allow-env",
-        "/ABSOLUTE/PATH/TO/main.ts"
-      ]
+      "url": "http://localhost:58839/mcp"
     }
   }
 }

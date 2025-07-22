@@ -1,7 +1,8 @@
 {
   "tasks": {
-    "dev": "deno run --watch --allow-read --allow-env main.ts",
-    "mcp": "deno run --allow-read --allow-env main.ts"
+    "dev": "deno run --watch --allow-read --allow-env --allow-net main.ts",
+    "mcp": "deno run --allow-read --allow-env --allow-net main.ts",
+    "test": "deno run --allow-read --allow-env --allow-net test-client.ts"
   },
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.12.3",
