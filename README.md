@@ -24,13 +24,25 @@ Copy [`example.mcp.json`](example.mcp.json) to your MCP configuration directory.
 
 ## Usage
 
-Start the server:
+Start the server in background using PM2:
 
 ```bash
-deno run --allow-read --allow-env --allow-net main.ts
+deno task mcp
 ```
 
-Or use the dev task:
+To view logs:
+
+```bash
+deno task mcp-logs
+```
+
+To stop the server:
+
+```bash
+deno task mcp-stop
+```
+
+For development with watch (foreground):
 
 ```bash
 deno task dev

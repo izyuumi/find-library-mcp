@@ -1,7 +1,9 @@
 {
   "tasks": {
     "dev": "deno run --watch --allow-read --allow-env --allow-net main.ts",
-    "mcp": "deno run --allow-read --allow-env --allow-net main.ts",
+    "mcp": "pm2 start /bin/sh --name mcp-server -- -c \"deno run --allow-read --allow-env --allow-net main.ts\"",
+    "mcp-stop": "pm2 stop mcp-server",
+    "mcp-logs": "pm2 logs mcp-server",
     "test": "deno run --allow-read --allow-env --allow-net test-client.ts"
   },
   "imports": {
