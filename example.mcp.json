@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "find-library-mcp": {
+      "command": "deno",
+      "args": [
+        "run",
+        "--allow-read",
+        "--allow-env",
+        "/ABSOLUTE/PATH/TO/main.ts"
+      ]
+    }
+  }
+}
