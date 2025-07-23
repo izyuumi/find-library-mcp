@@ -1,12 +1,12 @@
 # Find Library MCP Server
 
-A minimal MCP (Model Context Protocol) server that finds files in the current directory tree.
+An MCP (Model Context Protocol) SSE server that searches for files in the current directory and subdirectories.
 
 ## Features
 
-- **find_file** tool: Searches recursively for a file by name starting from the current working directory
-- Returns the first matching file path found
-- Built with Bun runtime for fast performance
+- **File Search**: Search for any file by name in the current directory and all subdirectories
+- **SSE Support**: Server-Sent Events for real-time communication
+- **CORS Enabled**: Accessible from any origin
 
 ## Installation
 
@@ -16,44 +16,68 @@ bun install
 
 ## Usage
 
-### Running the server
+Start the server:
 
 ```bash
-bun main.ts
+bun run start
 ```
 
-### Using with Claude Desktop
+The server will run on port 58840 by default. If that port is in use, it will automatically increment to find an available port. You can also specify a custom port using the `PORT` environment variable.
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+## Endpoints
+
+- `GET /` - Server information and available tools
+- `GET /sse` - Server-Sent Events endpoint for MCP connection
+- `POST /messages` - Message handling endpoint for MCP
+
+## Tools
+
+### find_file
+
+Searches for a file by name in the current directory and all subdirectories.
+
+**Parameters:**
+
+- `filename` (string): The name of the file to search for (e.g., 'library.jar')
+
+**Returns:**
+
+- If found: The full path to the file
+- If not found: An error message
+
+## Example
+
+To search for a file named `library.jar`:
 
 ```json
 {
-  "mcpServers": {
-    "find-library": {
-      "command": "bun",
-      "args": ["/path/to/find-library-mcp/main.ts"]
-    }
+  "tool": "find_file",
+  "parameters": {
+    "filename": "library.jar"
   }
 }
 ```
 
-### Tool: find_file
+## Response Format
 
-The server provides a single tool called `find_file` that accepts:
+### File Found
 
-- `filename` (string, required): The name of the file to search for
+```json
+{
+  "found": true,
+  "filename": "library.jar",
+  "path": "/Users/username/Downloads/find-library-mcp/library.jar",
+  "searchDirectory": "/Users/username/Downloads/find-library-mcp"
+}
+```
 
-Example usage in Claude:
+### File Not Found
 
-- "Use find_file to locate library.jar"
-- "Find the file named config.json"
-
-The tool returns the first matching file path found, or indicates if the file was not found.
-
-## Development
-
-Built with:
-
-- Bun runtime
-- @modelcontextprotocol/sdk
-- TypeScript
+```json
+{
+  "found": false,
+  "filename": "library.jar",
+  "message": "File \"library.jar\" not found in /Users/username/Downloads/find-library-mcp",
+  "searchDirectory": "/Users/username/Downloads/find-library-mcp"
+}
+```

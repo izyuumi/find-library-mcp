@@ -1,157 +1,166 @@
-#!/usr/bin/env bun
+import express from "express";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { z } from "zod";
+import { readdir } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import cors from "cors";
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type JSONRPCMessage,
-} from "@modelcontextprotocol/sdk/types.js";
-import type { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
-import { Glob } from "bun";
+const server = new McpServer({
+  name: "find-library-mcp",
+  version: "1.0.0",
+});
 
-const server = new Server(
-  {
-    name: "find-library-mcp",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
-    },
+async function findFile(
+  filename: string,
+  searchPath: string
+): Promise<string | null> {
+  try {
+    const entries = await readdir(searchPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(searchPath, entry.name);
+
+      if (entry.isFile() && entry.name === filename) {
+        return resolve(fullPath);
+      }
+
+      if (entry.isDirectory()) {
+        const result = await findFile(filename, fullPath);
+        if (result) return result;
+      }
+    }
+  } catch (error) {
+    console.error(`Error searching in ${searchPath}:`, error);
   }
+
+  return null;
+}
+
+server.tool("find_file", { filename: z.string() }, async ({ filename }) => {
+  const searchDirectory = process.cwd();
+  console.log(`Searching for "${filename}" in ${searchDirectory}`);
+
+  const filePath = await findFile(filename, searchDirectory);
+
+  if (filePath) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              found: true,
+              filename,
+              path: filePath,
+              searchDirectory,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  } else {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              found: false,
+              filename,
+              message: `File "${filename}" not found in ${searchDirectory}`,
+              searchDirectory,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+});
+
+const app = express();
+
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: false,
+  })
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
+app.get("/", (req, res) => {
+  res.json({
+    name: "Find Library MCP Server",
+    version: "1.0.0",
+    status: "running",
+    endpoints: {
+      "/": "Server information (this response)",
+      "/sse": "Server-Sent Events endpoint for MCP connection",
+      "/messages": "POST endpoint for MCP messages",
+    },
     tools: [
       {
         name: "find_file",
         description:
-          "Find the first occurrence of a file by name in the current directory tree",
-        inputSchema: {
-          type: "object",
-          properties: {
-            filename: {
-              type: "string",
-              description: "The name of the file to search for",
-            },
-          },
-          required: ["filename"],
+          "Find a file by name in the current directory and subdirectories",
+        parameters: {
+          filename: "The name of the file to search for (e.g., 'library.jar')",
         },
       },
     ],
-  };
+  });
 });
 
-server.setRequestHandler(
-  CallToolRequestSchema,
-  async (request: CallToolRequest) => {
-    if (request.params.name === "find_file") {
-      const { filename } = request.params.arguments as { filename: string };
+let transport: SSEServerTransport;
 
-      if (!filename) {
-        throw new Error("Missing 'filename' parameter");
-      }
+app.get("/sse", async (req, res) => {
+  transport = new SSEServerTransport("/messages", res);
+  await server.connect(transport);
+});
 
-      const glob = new Glob(`**/${filename}`);
-      let found: string | null = null;
+app.post("/messages", async (req, res) => {
+  await transport.handlePostMessage(req, res);
+});
 
-      for await (const path of glob.scan(process.cwd())) {
-        found = path;
-        break;
-      }
+async function findAvailablePort(startPort: number): Promise<number> {
+  let port = startPort;
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: found ? `Found: ${found}` : `File '${filename}' not found`,
-          },
-        ],
-      };
-    }
-
-    throw new Error(`Unknown tool: ${request.params.name}`);
-  }
-);
-
-class BunHTTPTransport {
-  private responseQueue: JSONRPCMessage[] = [];
-
-  async start() {}
-
-  async close() {}
-
-  async send(message: JSONRPCMessage) {
-    this.responseQueue.push(message);
-  }
-
-  async handleRequest(message: JSONRPCMessage): Promise<JSONRPCMessage | null> {
-    this.responseQueue = [];
-
-    return new Promise<JSONRPCMessage | null>((resolve) => {
-      if (this.onmessage) {
-        Promise.resolve(this.onmessage(message)).then(() => {
-          setTimeout(() => {
-            resolve(
-              this.responseQueue.length > 0 ? this.responseQueue[0]! : null
-            );
-          }, 50);
-        });
+  while (true) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const testServer = app
+          .listen(port, () => {
+            testServer.close(() => resolve());
+          })
+          .on("error", (err: any) => {
+            if (err.code === "EADDRINUSE") {
+              reject(err);
+            } else {
+              reject(err);
+            }
+          });
+      });
+      return port;
+    } catch (err: any) {
+      if (err.code === "EADDRINUSE") {
+        console.log(`Port ${port} is in use, trying ${port + 1}...`);
+        port++;
       } else {
-        resolve(null);
+        throw err;
       }
-    });
+    }
   }
-
-  onmessage?: (message: JSONRPCMessage) => void | Promise<void>;
-  onclose?: () => void;
-  onerror?: (error: Error) => void;
 }
 
-const transport = new BunHTTPTransport();
-await server.connect(transport);
+(async () => {
+  const START_PORT = process.env.PORT ? parseInt(process.env.PORT) : 58840;
+  const PORT = await findAvailablePort(START_PORT);
 
-const httpServer = Bun.serve({
-  port: 58840,
-  async fetch(req) {
-    if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
-
-    try {
-      const message = (await req.json()) as JSONRPCMessage;
-      const response = await transport.handleRequest(message);
-
-      if (response) {
-        return new Response(JSON.stringify(response), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-      }
-
-      return new Response(null, { status: 204 });
-    } catch (error) {
-      return new Response(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          error: {
-            code: -32700,
-            message: "Parse error",
-          },
-          id: null,
-        }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-  },
-});
-
-console.error(`Find Library MCP server running on port ${httpServer.port}`);
+  app.listen(PORT, () => {
+    console.log(`Find Library MCP Server running on port ${PORT}`);
+  });
+})();
