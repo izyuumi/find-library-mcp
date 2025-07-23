@@ -37,50 +37,54 @@ async function findFile(
   return null;
 }
 
-server.tool("find_file", { filename: z.string() }, async ({ filename }) => {
-  const searchDirectory = process.cwd();
-  console.log(`Searching for "${filename}" in ${searchDirectory}`);
+server.tool(
+  "find_jar_library",
+  { filename: z.string() },
+  async ({ filename }) => {
+    const searchDirectory = process.cwd();
+    console.log(`Searching for "${filename}" in ${searchDirectory}`);
 
-  const filePath = await findFile(filename, searchDirectory);
+    const filePath = await findFile(filename, searchDirectory);
 
-  if (filePath) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            {
-              found: true,
-              filename,
-              path: filePath,
-              searchDirectory,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
-  } else {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            {
-              found: false,
-              filename,
-              message: `File "${filename}" not found in ${searchDirectory}`,
-              searchDirectory,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+    if (filePath) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                found: true,
+                filename,
+                path: filePath,
+                searchDirectory,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                found: false,
+                filename,
+                message: `File "${filename}" not found in ${searchDirectory}`,
+                searchDirectory,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
   }
-});
+);
 
 const app = express();
 
@@ -104,11 +108,12 @@ app.get("/", (req, res) => {
     },
     tools: [
       {
-        name: "find_file",
+        name: "find_jar_library",
         description:
-          "Find a file by name in the current directory and subdirectories",
+          "Find a JAR library by name in the current directory and subdirectories",
         parameters: {
-          filename: "The name of the file to search for (e.g., 'library.jar')",
+          filename:
+            "The name of the JAR file to search for (e.g., 'library.jar')",
         },
       },
     ],
