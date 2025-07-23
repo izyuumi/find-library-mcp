@@ -83,9 +83,26 @@ app.post("/messages", async (c) => {
 
 // 3️⃣  Run on Bun
 if (import.meta.main) {
-  const port = Number(Bun.env.PORT ?? 58839);
-  Bun.serve({ port, fetch: app.fetch });
-  console.log(`🚀 MCP SSE server listening on http://localhost:${port}`);
+  const startPort = Number(Bun.env.PORT ?? 58839);
+  const maxRetries = 10;
+
+  async function tryServe(port: number, attempt: number = 0): Promise<void> {
+    try {
+      Bun.serve({ port, fetch: app.fetch });
+      console.log(`🚀 MCP SSE server listening on http://localhost:${port}`);
+    } catch (error) {
+      if (attempt < maxRetries) {
+        const nextPort = port + 1;
+        console.log(`Port ${port} is in use, trying port ${nextPort}...`);
+        await tryServe(nextPort, attempt + 1);
+      } else {
+        console.error(`Failed to start server after ${maxRetries} attempts.`);
+        throw error;
+      }
+    }
+  }
+
+  tryServe(startPort);
 }
 
 // 4️⃣  Export fetch handler for edge / runner compatibility
