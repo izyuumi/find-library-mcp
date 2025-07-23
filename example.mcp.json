@@ -1,7 +1,0 @@
-{
-  "mcpServers": {
-    "find-library-mcp": {
-      "url": "http://localhost:58839/mcp"
-    }
-  }
-}
