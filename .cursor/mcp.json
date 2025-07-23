@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "claude-code-sound-mcp-server": {
+      "command": "deno",
+      "args": [
+        "run",
+        "--allow-run",
+        "--allow-read",
+        "--allow-env",
+        "/Users/yumiizumi/Downloads/claude-code-sound/main.ts"
+      ]
+    }
+  }
+}
